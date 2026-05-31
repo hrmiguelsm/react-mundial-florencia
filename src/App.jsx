@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
+import { seedMatchesIfEmpty } from './lib/db.js'
 
 import Landing from './pages/Landing.jsx'
 import ReacterLogin from './pages/ReacterLogin.jsx'
@@ -27,6 +28,8 @@ function AdminGuard({ children }) {
 }
 
 export default function App() {
+  useEffect(() => { seedMatchesIfEmpty().catch(console.error) }, [])
+
   return (
     <AuthProvider>
       <BrowserRouter>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, User, Calendar, Clock, AlertTriangle, Mic2, X, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { matches, registrations } from '../lib/demoStorage.js'
+import { matches, registrations } from '../lib/db.js'
 
 const MAX_WAITING = 6
 const MAX_MAIN = 2
@@ -221,14 +221,14 @@ export default function ReacterDashboard() {
 
   useEffect(() => { loadData() }, [])
 
-  const loadData = () => {
+  const loadData = async () => {
     // Show active + closed matches to reacters
-    const ms = matches.getVisible()
+    const ms = await matches.getVisible()
     setVisibleMatches(ms)
     const regsMap = {}
     const myMap = {}
     for (const m of ms) {
-      const regs = registrations.getByMatch(m.id)
+      const regs = await registrations.getByMatch(m.id)
       regsMap[m.id] = regs
       if (reacterSession?.reacter) {
         myMap[m.id] = regs.find(r => r.reacter_id === reacterSession.reacter.id) || null
@@ -238,7 +238,7 @@ export default function ReacterDashboard() {
     setMyRegs(myMap)
   }
 
-  const handleAction = (action, match, myReg) => {
+  const handleAction = async (action, match, myReg) => {
     if (!reacterSession?.reacter) {
       alert('Completa tu perfil primero')
       navigate('/reacter/perfil')
@@ -248,7 +248,7 @@ export default function ReacterDashboard() {
     try {
       if (action === 'cancel') {
         if (!window.confirm('¿Cancelar tu inscripción?')) return
-        registrations.delete(myReg.id)
+        await registrations.delete(myReg.id)
       } else {
         // Determine status
         const statusMap = {
@@ -257,7 +257,7 @@ export default function ReacterDashboard() {
           waiting_solo: 'waiting',
           waiting_duo: 'waiting',
         }
-        registrations.create({
+        await registrations.create({
           match_id: match.id,
           reacter_id: reacterSession.reacter.id,
           reacter_name: reacterSession.reacter.name,

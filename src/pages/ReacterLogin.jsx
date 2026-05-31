@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, LogIn, AlertCircle } from 'lucide-react'
 import { formatRut, cleanRut, validateRut } from '../utils/rut.js'
-import { authorizedUsers, reacters } from '../lib/demoStorage.js'
+import { authorizedUsers, reacters } from '../lib/db.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function ReacterLogin() {
@@ -29,7 +29,7 @@ export default function ReacterLogin() {
     }
     setLoading(true)
     try {
-      const user = authorizedUsers.getByRut(formatRut(cleaned))
+      const user = await authorizedUsers.getByRut(formatRut(cleaned))
       if (!user) {
         setError('Este RUT no está autorizado para participar. Contacta a Florencia Digital.')
         setLoading(false)
@@ -40,7 +40,7 @@ export default function ReacterLogin() {
         setLoading(false)
         return
       }
-      const reacter = reacters.getByRut(formatRut(cleaned))
+      const reacter = await reacters.getByRut(formatRut(cleaned))
       loginReacter(formatRut(cleaned), reacter)
       if (reacter) {
         navigate('/reacter/partidos')

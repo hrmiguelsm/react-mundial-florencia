@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Search, Download, CheckCircle, Clock, XCircle, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import { registrations as regStore, matches as matchStore, reacters as reacterStore } from '../../lib/demoStorage.js'
+import { registrations as regStore, matches as matchStore, reacters as reacterStore } from '../../lib/db.js'
 
 const STATUS_OPTIONS = ['pending', 'confirmed', 'waiting', 'rejected', 'cancelled']
 const STATUS_LABELS = {
@@ -191,20 +191,23 @@ export default function Registrations() {
   const [view, setView] = useState('byMatch') // 'byMatch' | 'table'
 
   useEffect(() => {
-    setAllMatches(matchStore.getAll())
-    setAllReacters(reacterStore.getAll())
-    load()
+    const init = async () => {
+      setAllMatches(await matchStore.getAll())
+      setAllReacters(await reacterStore.getAll())
+      await load()
+    }
+    init()
   }, [])
 
-  const load = () => setRegs(regStore.getAll())
+  const load = async () => setRegs(await regStore.getAll())
 
-  const handleStatusChange = (id, status) => {
-    regStore.update(id, { status })
+  const handleStatusChange = async (id, status) => {
+    await regStore.update(id, { status })
     load()
   }
 
-  const handleDelete = (id) => {
-    regStore.delete(id)
+  const handleDelete = async (id) => {
+    await regStore.delete(id)
     load()
   }
 

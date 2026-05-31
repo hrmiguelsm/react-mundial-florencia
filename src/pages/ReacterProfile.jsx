@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, ArrowLeft, User, Phone, Mail, Users, Search } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { reacters, authorizedUsers } from '../lib/demoStorage.js'
+import { reacters, authorizedUsers } from '../lib/db.js'
 import { formatRut, cleanRut, validateRut } from '../utils/rut.js'
 
 const INPUT = 'w-full bg-navy-900 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-gold-500 transition-colors'
@@ -56,7 +56,7 @@ export default function ReacterProfile() {
   }
 
   // Lookup duo by RUT in authorized_users + reacters
-  const lookupDuo = useCallback((rawRut, showLoading = true) => {
+  const lookupDuo = useCallback(async (rawRut, showLoading = true) => {
     const cleaned = cleanRut(rawRut)
     if (!cleaned || cleaned.length < 3) {
       setDuoLookup({ loading: false, found: null, error: '' })
@@ -71,14 +71,14 @@ export default function ReacterProfile() {
     if (showLoading) setDuoLookup({ loading: true, found: null, error: '' })
 
     // Search in authorized_users first
-    const authUser = authorizedUsers.getByRut(formatted)
+    const authUser = await authorizedUsers.getByRut(formatted)
     if (!authUser || authUser.status === 'blocked') {
       setDuoLookup({ loading: false, found: null, error: 'El RUT ingresado no se encuentra autorizado por Florencia Digital.' })
       return
     }
 
     // Enrich with reacter profile if exists
-    const reacterProfile = reacters.getByRut(formatted)
+    const reacterProfile = await reacters.getByRut(formatted)
     setDuoLookup({
       loading: false,
       found: {
@@ -135,9 +135,9 @@ export default function ReacterProfile() {
         duo_email: duo?.email || null,
         duo_phone: duo?.phone || null,
       }
-      const savedReacter = reacters.upsert(data)
+      const savedReacter = await reacters.upsert(data)
       // Sync name/email/phone back to authorized_users (Change #3)
-      authorizedUsers.updateProfile(reacterSession.rut, {
+      await authorizedUsers.updateProfile(reacterSession.rut, {
         name: data.name,
         email: data.email,
         phone: data.phone,

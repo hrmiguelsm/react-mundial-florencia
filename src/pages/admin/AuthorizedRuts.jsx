@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Download, Upload, Search, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import { authorizedUsers } from '../../lib/demoStorage.js'
+import { authorizedUsers } from '../../lib/db.js'
 import { formatRut, cleanRut, validateRut } from '../../utils/rut.js'
 
 function AddModal({ onClose, onAdd }) {
@@ -16,12 +16,12 @@ function AddModal({ onClose, onAdd }) {
     setError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const cleaned = cleanRut(rut)
     if (!validateRut(cleaned)) { setError('RUT inválido'); return }
     try {
-      onAdd(formatRut(cleaned), name.trim())
+      await onAdd(formatRut(cleaned), name.trim())
       onClose()
     } catch (err) { setError(err.message) }
   }
@@ -62,17 +62,17 @@ export default function AuthorizedRuts() {
   const csvRef = useRef()
 
   useEffect(() => { load() }, [])
-  const load = () => setList(authorizedUsers.getAll())
+  const load = async () => setList(await authorizedUsers.getAll())
 
-  const handleAdd = (rut, name) => {
-    authorizedUsers.add(rut, name)
+  const handleAdd = async (rut, name) => {
+    await authorizedUsers.add(rut, name)
     load()
   }
 
-  const handleToggle = (id) => { authorizedUsers.toggleStatus(id); load() }
-  const handleDelete = (id) => {
+  const handleToggle = async (id) => { await authorizedUsers.toggleStatus(id); load() }
+  const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar RUT?')) return
-    authorizedUsers.delete(id)
+    await authorizedUsers.delete(id)
     load()
   }
 
@@ -86,13 +86,13 @@ export default function AuthorizedRuts() {
   const handleImportCSV = (e) => {
     const file = e.target.files[0]; if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const lines = ev.target.result.split('\n').filter(Boolean)
       const items = lines.slice(1).map(l => {
         const [rut, name] = l.split(',').map(s => s.trim())
         return { rut, name: name || '' }
       }).filter(i => i.rut)
-      authorizedUsers.importMany(items)
+      await authorizedUsers.importMany(items)
       load()
       alert('Importación completada')
     }

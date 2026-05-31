@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Search, Download, Eye, X, Users } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import { reacters as reacterStore } from '../../lib/demoStorage.js'
+import { reacters as reacterStore } from '../../lib/db.js'
 
 function ReacterModal({ reacter, onClose }) {
   return (
@@ -48,7 +48,7 @@ export default function ReactersAdmin() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
-  useEffect(() => { setList(reacterStore.getAll()) }, [])
+  useEffect(() => { reacterStore.getAll().then(setList) }, [])
 
   const filtered = list.filter(r => {
     const q = search.toLowerCase()

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Download, Upload, X, Search, Lock, CheckCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import { matches as matchStore, registrations as regStore } from '../../lib/demoStorage.js'
+import { matches as matchStore, registrations as regStore } from '../../lib/db.js'
 
 const PHASES = [
   'Fase de Grupos - Grupo A', 'Fase de Grupos - Grupo B', 'Fase de Grupos - Grupo C',
@@ -230,58 +230,58 @@ export default function MatchesAdmin() {
 
   useEffect(() => { load() }, [])
 
-  const load = () => {
-    const ms = matchStore.getAll()
+  const load = async () => {
+    const ms = await matchStore.getAll()
     setList(ms)
     // Compute registration counts per match
     const counts = {}
     for (const m of ms) {
       counts[m.id] = {
-        main: regStore.countMain(m.id),
-        waiting: regStore.countWaiting(m.id),
+        main: await regStore.countMain(m.id),
+        waiting: await regStore.countWaiting(m.id),
       }
     }
     setRegCounts(counts)
   }
 
-  const handleSave = (form) => {
-    if (modal === 'new') matchStore.create(form)
-    else matchStore.update(modal.id, form)
+  const handleSave = async (form) => {
+    if (modal === 'new') await matchStore.create(form)
+    else await matchStore.update(modal.id, form)
     setModal(null)
     load()
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar partido?')) return
-    matchStore.delete(id)
+    await matchStore.delete(id)
     load()
   }
 
-  const handleToggleEnable = (m) => {
+  const handleToggleEnable = async (m) => {
     // Toggle between 'active' and 'disabled'
     const next = m.status === 'disabled' ? 'active' : 'disabled'
-    matchStore.update(m.id, { status: next })
+    await matchStore.update(m.id, { status: next })
     load()
   }
 
-  const handleCloseInscriptions = (m) => {
+  const handleCloseInscriptions = async (m) => {
     if (!window.confirm(`¿Cerrar inscripciones para ${m.team_a} vs ${m.team_b}?`)) return
-    matchStore.update(m.id, { status: 'closed' })
+    await matchStore.update(m.id, { status: 'closed' })
     load()
   }
 
-  const handleReopenInscriptions = (m) => {
-    matchStore.update(m.id, { status: 'active' })
+  const handleReopenInscriptions = async (m) => {
+    await matchStore.update(m.id, { status: 'active' })
     load()
   }
 
-  const handleStatusChange = (id, next) => {
-    matchStore.update(id, { status: next })
+  const handleStatusChange = async (id, next) => {
+    await matchStore.update(id, { status: next })
     load()
   }
 
-  const handleTransmissionChange = (id, data) => {
-    matchStore.update(id, data)
+  const handleTransmissionChange = async (id, data) => {
+    await matchStore.update(id, data)
     load()
   }
 
@@ -306,14 +306,14 @@ export default function MatchesAdmin() {
     const file = e.target.files[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const lines = ev.target.result.split('\n').filter(Boolean)
       const headers = lines[0].split(',').map(h => h.trim())
       const rows = lines.slice(1).map(line => {
         const vals = line.split(',')
         return Object.fromEntries(headers.map((h, i) => [h, (vals[i] || '').trim()]))
       })
-      matchStore.importMany(rows.map(r => ({
+      await matchStore.importMany(rows.map(r => ({
         team_a: r.team_a || r['Equipo A'] || '',
         team_b: r.team_b || r['Equipo B'] || '',
         flag_a: r.flag_a || r['Bandera A'] || '🏳️',
