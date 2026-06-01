@@ -208,6 +208,241 @@ function TransmissionCell({ match, onChange }) {
   )
 }
 
+// ── Close Match Panel ─────────────────────────────────────────
+function CloseMatchPanel({ match, onClose, onSaved, onClosed }) {
+  const [regs, setRegs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  // local copy of statuses to edit before saving
+  const [statuses, setStatuses] = useState({})
+
+  useEffect(() => { loadRegs() }, [])
+
+  const loadRegs = async () => {
+    setLoading(true)
+    const data = await regStore.getByMatch(match.id)
+    const active = data.filter(r => !['cancelled'].includes(r.status))
+    setRegs(active)
+    const s = {}
+    active.forEach(r => { s[r.id] = r.status })
+    setStatuses(s)
+    setLoading(false)
+  }
+
+  const mainRegs = regs.filter(r => ['solo', 'duo'].includes(r.registration_type))
+  const waitingRegs = regs.filter(r => ['waiting_solo', 'waiting_duo'].includes(r.registration_type))
+
+  const setStatus = (id, status) => setStatuses(prev => ({ ...prev, [id]: status }))
+
+  const confirmAll = () => {
+    const next = {}
+    regs.forEach(r => { next[r.id] = 'confirmed' })
+    setStatuses(next)
+  }
+
+  const saveAll = async () => {
+    setSaving(true)
+    for (const r of regs) {
+      if (statuses[r.id] !== r.status) {
+        await regStore.update(r.id, { status: statuses[r.id] })
+      }
+    }
+    setSaving(false)
+    onSaved()
+  }
+
+  const closeTransmission = async () => {
+    setSaving(true)
+    for (const r of regs) {
+      if (statuses[r.id] !== r.status) {
+        await regStore.update(r.id, { status: statuses[r.id] })
+      }
+    }
+    await matchStore.update(match.id, { status: 'closed' })
+    setSaving(false)
+    onClosed()
+  }
+
+  const confirmedCount = Object.values(statuses).filter(s => s === 'confirmed').length
+
+  const typeLabel = { solo: 'Solo', duo: 'Con dupla', waiting_solo: 'Espera solo', waiting_duo: 'Espera dupla' }
+  const statusColor = {
+    pending:   'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-green-500/20 text-green-400',
+    waiting:   'bg-blue-500/20 text-blue-400',
+    rejected:  'bg-red-500/20 text-red-400',
+    cancelled: 'bg-gray-500/20 text-gray-400',
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className="bg-navy-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+
+        {/* Header */}
+        <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-lg font-black text-white flex items-center gap-2">
+              🔒 Cerrar transmisión
+            </h2>
+            <p className="text-white/40 text-sm mt-0.5">
+              {match.flag_a} {match.team_a} vs {match.team_b} {match.flag_b}
+              {match.match_date && <span className="ml-2">· {match.match_date} {match.match_time}</span>}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/30 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Match info bar */}
+        <div className="px-5 py-3 bg-navy-800/50 border-b border-white/5 flex flex-wrap gap-4 text-xs shrink-0">
+          <span className="text-white/50">Fase: <span className="text-white">{match.phase}</span></span>
+          <span className="text-white/50">Lugar:
+            <span className="text-gold-400 ml-1">
+              {match.transmission_type === 'studio' ? '🎥 Estudio' : match.transmission_type === 'home' ? '🏠 Casa' : `✍️ ${match.custom_transmission_text}`}
+            </span>
+          </span>
+          {confirmedCount > 0 && (
+            <span className="text-green-400 font-semibold">✓ {confirmedCount} confirmados</span>
+          )}
+        </div>
+
+        {/* Participants list */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {loading ? (
+            <div className="text-center py-8 text-white/30">Cargando inscritos...</div>
+          ) : regs.length === 0 ? (
+            <div className="text-center py-8 text-white/30">
+              <p className="text-3xl mb-2">📋</p>
+              <p>No hay inscritos en este partido</p>
+              <p className="text-xs mt-1 text-white/20">Puedes cerrarlo igual</p>
+            </div>
+          ) : (
+            <>
+              {/* Confirm all button */}
+              {mainRegs.length > 0 && (
+                <button
+                  onClick={confirmAll}
+                  className="w-full py-2.5 bg-green-500/10 border border-green-500/20 text-green-400 font-semibold text-sm rounded-xl hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" /> Confirmar todos ({regs.length})
+                </button>
+              )}
+
+              {/* Main participants */}
+              {mainRegs.length > 0 && (
+                <div>
+                  <p className="text-xs text-gold-400 font-semibold uppercase tracking-wider mb-2">🎙️ Postulantes principales</p>
+                  <div className="space-y-2">
+                    {mainRegs.map((r, i) => (
+                      <div key={r.id} className="flex items-center justify-between gap-3 bg-navy-800 rounded-xl p-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-white/30 text-xs w-5 shrink-0">{i + 1}.</span>
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{r.reacter_name || r.reacter_id}</p>
+                            <p className="text-white/30 text-xs">{typeLabel[r.registration_type]}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => setStatus(r.id, 'confirmed')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'confirmed' ? 'bg-green-500/30 text-green-300 ring-1 ring-green-500/50' : 'bg-white/5 text-white/40 hover:bg-green-500/20 hover:text-green-400'}`}
+                          >
+                            ✓ Confirmar
+                          </button>
+                          <button
+                            onClick={() => setStatus(r.id, 'waiting')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'waiting' ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50' : 'bg-white/5 text-white/40 hover:bg-blue-500/20 hover:text-blue-400'}`}
+                          >
+                            Espera
+                          </button>
+                          <button
+                            onClick={() => setStatus(r.id, 'rejected')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'rejected' ? 'bg-red-500/30 text-red-300 ring-1 ring-red-500/50' : 'bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400'}`}
+                          >
+                            ✗ No
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Waiting list */}
+              {waitingRegs.length > 0 && (
+                <div>
+                  <p className="text-xs text-blue-400 font-semibold uppercase tracking-wider mb-2">⏳ Lista de espera</p>
+                  <div className="space-y-2">
+                    {waitingRegs.map((r, i) => (
+                      <div key={r.id} className="flex items-center justify-between gap-3 bg-navy-800/60 border border-blue-500/10 rounded-xl p-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-white/20 text-xs w-5 shrink-0">{i + 1}.</span>
+                          <div className="min-w-0">
+                            <p className="text-white/70 text-sm truncate">{r.reacter_name || r.reacter_id}</p>
+                            <p className="text-white/20 text-xs">{typeLabel[r.registration_type]}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => setStatus(r.id, 'confirmed')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'confirmed' ? 'bg-green-500/30 text-green-300 ring-1 ring-green-500/50' : 'bg-white/5 text-white/40 hover:bg-green-500/20 hover:text-green-400'}`}
+                          >
+                            ✓ Confirmar
+                          </button>
+                          <button
+                            onClick={() => setStatus(r.id, 'rejected')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'rejected' ? 'bg-red-500/30 text-red-300 ring-1 ring-red-500/50' : 'bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400'}`}
+                          >
+                            ✗ No
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer buttons */}
+        <div className="p-5 border-t border-white/5 shrink-0">
+          {confirmedCount > 0 && (
+            <p className="text-center text-green-400 text-xs mb-3 font-medium">
+              ✓ {confirmedCount} participante{confirmedCount !== 1 ? 's' : ''} confirmado{confirmedCount !== 1 ? 's' : ''} para transmisión
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              Volver
+            </button>
+            <button
+              onClick={saveAll}
+              disabled={saving}
+              className="flex-1 py-3 bg-navy-700 border border-white/10 hover:bg-navy-600 text-white rounded-xl transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              {saving ? '...' : 'Guardar'}
+            </button>
+            <button
+              onClick={closeTransmission}
+              disabled={saving}
+              className="flex-1 py-3 bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 text-orange-300 font-bold rounded-xl transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              {saving ? '...' : 'Cerrar transmisión'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Status Chip ────────────────────────────────────────────────
 function StatusChip({ status }) {
   const s = STATUSES[status] || STATUSES.disabled
@@ -223,6 +458,7 @@ export default function MatchesAdmin() {
   const [list, setList] = useState([])
   const [regCounts, setRegCounts] = useState({}) // { matchId: { main, waiting } }
   const [modal, setModal] = useState(null)
+  const [closePanel, setClosePanel] = useState(null) // match object to show in CloseMatchPanel
   const [search, setSearch] = useState('')
   const [filterPhase, setFilterPhase] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -486,11 +722,11 @@ export default function MatchesAdmin() {
                           </button>
                         )}
 
-                        {/* Close inscriptions button (active only) */}
+                        {/* Close inscriptions button (active only) — opens panel */}
                         {isOpen && (
                           <button
-                            onClick={() => handleCloseInscriptions(m)}
-                            title="Cerrar inscripciones"
+                            onClick={() => setClosePanel(m)}
+                            title="Gestionar y cerrar transmisión"
                             className="p-1.5 rounded-lg hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-400 transition-colors"
                           >
                             <Lock className="w-4 h-4" />
@@ -542,6 +778,15 @@ export default function MatchesAdmin() {
           match={modal === 'new' ? null : modal}
           onClose={() => setModal(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {closePanel !== null && (
+        <CloseMatchPanel
+          match={closePanel}
+          onClose={() => setClosePanel(null)}
+          onSaved={() => { setClosePanel(null); load() }}
+          onClosed={() => { setClosePanel(null); load() }}
         />
       )}
     </div>
