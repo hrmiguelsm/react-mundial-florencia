@@ -211,6 +211,40 @@ function MatchCard({ match, myReg, allRegs, onAction }) {
   )
 }
 
+// ── Cancel Duo Modal ──────────────────────────────────────────
+function CancelDuoModal({ duoName, onCancelSolo, onCancelBoth, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="bg-navy-800 border border-white/10 rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-white font-bold text-lg text-center">¿Cómo quieres cancelar?</h3>
+        <p className="text-white/50 text-sm text-center">
+          Estás inscrito junto a <span className="text-gold-400 font-medium">{duoName}</span>
+        </p>
+        <div className="space-y-3 pt-2">
+          <button
+            onClick={onCancelSolo}
+            className="w-full py-3 bg-orange-500/15 border border-orange-500/30 text-orange-300 font-semibold rounded-xl hover:bg-orange-500/25 transition-colors text-sm"
+          >
+            Solo yo salgo del partido
+          </button>
+          <button
+            onClick={onCancelBoth}
+            className="w-full py-3 bg-red-500/15 border border-red-500/30 text-red-300 font-semibold rounded-xl hover:bg-red-500/25 transition-colors text-sm"
+          >
+            Salimos los dos del partido
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2 text-white/30 hover:text-white/60 transition-colors text-sm"
+          >
+            No cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ReacterDashboard() {
   const navigate = useNavigate()
   const { reacterSession, logoutReacter } = useAuth()
@@ -218,6 +252,7 @@ export default function ReacterDashboard() {
   const [allRegs, setAllRegs] = useState({})
   const [myRegs, setMyRegs] = useState({})
   const [filter, setFilter] = useState('all')
+  const [cancelModal, setCancelModal] = useState(null) // { match, myReg }
 
   useEffect(() => { loadData() }, [])
 
@@ -248,23 +283,16 @@ export default function ReacterDashboard() {
     try {
       if (action === 'cancel') {
         const isDuoReg = ['duo', 'waiting_duo'].includes(myReg.registration_type)
-        const msg = isDuoReg
-          ? '¿Cancelar tu inscripción y la de tu dupla en este partido?'
-          : '¿Cancelar tu inscripción?'
-        if (!window.confirm(msg)) return
 
-        // Delete own registration
-        await registrations.delete(myReg.id)
-
-        // If was a duo registration, also cancel the duo partner's registration
-        if (isDuoReg && reacter.duo_rut) {
-          const duoProfile = await reacters.getByRut(reacter.duo_rut)
-          if (duoProfile) {
-            const allMatchRegs = await registrations.getByMatch(match.id)
-            const duoReg = allMatchRegs.find(r => r.reacter_id === duoProfile.id)
-            if (duoReg) await registrations.delete(duoReg.id)
-          }
+        // If duo registration, show choice modal instead of confirm
+        if (isDuoReg && reacter.duo_name) {
+          setCancelModal({ match, myReg })
+          return
         }
+
+        // Solo registration — simple confirm
+        if (!window.confirm('¿Cancelar tu inscripción?')) return
+        await registrations.delete(myReg.id)
       } else {
         const reacter = reacterSession.reacter
 
@@ -346,9 +374,35 @@ export default function ReacterDashboard() {
   const phases = ['all', ...new Set(visibleMatches.map(m => m.phase))]
   const filtered = filter === 'all' ? visibleMatches : visibleMatches.filter(m => m.phase === filter)
 
+  // Cancel solo — only remove own registration
+  const handleCancelSolo = async () => {
+    const { myReg } = cancelModal
+    setCancelModal(null)
+    await registrations.delete(myReg.id)
+    loadData()
+  }
+
+  // Cancel both — remove own + duo partner's registration
+  const handleCancelBoth = async () => {
+    const { match, myReg } = cancelModal
+    setCancelModal(null)
+    await registrations.delete(myReg.id)
+    const reacter = reacterSession.reacter
+    if (reacter.duo_rut) {
+      const duoProfile = await reacters.getByRut(reacter.duo_rut)
+      if (duoProfile) {
+        const allMatchRegs = await registrations.getByMatch(match.id)
+        const duoReg = allMatchRegs.find(r => r.reacter_id === duoProfile.id)
+        if (duoReg) await registrations.delete(duoReg.id)
+      }
+    }
+    loadData()
+  }
+
   const handleLogout = () => { logoutReacter(); navigate('/') }
 
   return (
+    <>
     <div className="min-h-screen bg-navy-950">
       {/* Header */}
       <div className="bg-navy-900 border-b border-white/5 sticky top-0 z-20">
@@ -425,5 +479,15 @@ export default function ReacterDashboard() {
         )}
       </div>
     </div>
+
+    {cancelModal && (
+      <CancelDuoModal
+        duoName={reacterSession.reacter?.duo_name}
+        onCancelSolo={handleCancelSolo}
+        onCancelBoth={handleCancelBoth}
+        onClose={() => setCancelModal(null)}
+      />
+    )}
+    </>
   )
 }
