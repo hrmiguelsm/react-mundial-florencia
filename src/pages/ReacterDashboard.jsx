@@ -302,7 +302,37 @@ export default function ReacterDashboard() {
     try {
       if (action === 'cancel') {
         if (!window.confirm('¿Eliminar esta inscripción?')) return
+
+        const wasMain = ['solo', 'duo'].includes(myReg.registration_type)
         await registrations.delete(myReg.id)
+
+        // If removed a main participant, promote waiting list if needed
+        if (wasMain) {
+          const remaining = await registrations.getByMatch(match.id)
+          const mainNow = remaining.filter(r =>
+            ['solo', 'duo'].includes(r.registration_type) &&
+            !['cancelled', 'rejected'].includes(r.status)
+          ).length
+
+          if (mainNow < MAX_MAIN) {
+            const waiting = remaining
+              .filter(r =>
+                ['waiting_solo', 'waiting_duo'].includes(r.registration_type) &&
+                !['cancelled', 'rejected'].includes(r.status)
+              )
+              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
+            const spotsAvailable = MAX_MAIN - mainNow
+            for (let i = 0; i < Math.min(spotsAvailable, waiting.length); i++) {
+              const w = waiting[i]
+              const newType = w.registration_type === 'waiting_duo' ? 'duo' : 'solo'
+              await registrations.update(w.id, {
+                registration_type: newType,
+                status: 'pending',
+              })
+            }
+          }
+        }
       } else {
         const reacter = reacterSession.reacter
 
