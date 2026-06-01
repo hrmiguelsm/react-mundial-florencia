@@ -411,8 +411,23 @@ export default function ReacterDashboard() {
     }
   }
 
+  const [filterTime, setFilterTime] = useState('all')
+
   const phases = ['all', ...new Set(visibleMatches.map(m => m.phase))]
-  const filtered = filter === 'all' ? visibleMatches : visibleMatches.filter(m => m.phase === filter)
+
+  // Get unique hours from matches
+  const hours = ['all', ...new Set(
+    visibleMatches
+      .map(m => m.match_time ? m.match_time.slice(0, 5) : null)
+      .filter(Boolean)
+      .sort()
+  )]
+
+  const filtered = visibleMatches.filter(m => {
+    const matchPhase = filter === 'all' || m.phase === filter
+    const matchTime = filterTime === 'all' || (m.match_time && m.match_time.slice(0, 5) === filterTime)
+    return matchPhase && matchTime
+  })
 
   // Cancel solo — only remove own registration
   const handleCancelSolo = async () => {
@@ -482,20 +497,39 @@ export default function ReacterDashboard() {
           </div>
         </div>
 
-        {/* Phase filter */}
-        {phases.length > 2 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
-            {phases.map(p => (
-              <button
-                key={p}
-                onClick={() => setFilter(p)}
-                className={`shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${filter === p ? 'gold-gradient text-navy-950 font-bold' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
-              >
-                {p === 'all' ? 'Todos' : p.replace('Fase de Grupos - ', '')}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Filters */}
+        <div className="space-y-3 mb-6">
+          {/* Phase filter */}
+          {phases.length > 2 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {phases.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setFilter(p)}
+                  className={`shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${filter === p ? 'gold-gradient text-navy-950 font-bold' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+                >
+                  {p === 'all' ? 'Todos' : p.replace('Fase de Grupos - ', '')}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Time filter */}
+          {hours.length > 2 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
+              <span className="text-white/30 text-xs shrink-0">🕐 Horario:</span>
+              {hours.map(h => (
+                <button
+                  key={h}
+                  onClick={() => setFilterTime(h)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterTime === h ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                >
+                  {h === 'all' ? 'Todos' : h}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Matches grid */}
         {filtered.length === 0 ? (
