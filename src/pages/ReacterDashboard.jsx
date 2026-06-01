@@ -250,20 +250,40 @@ export default function ReacterDashboard() {
         if (!window.confirm('¿Cancelar tu inscripción?')) return
         await registrations.delete(myReg.id)
       } else {
-        // Determine status
+        const reacter = reacterSession.reacter
+
+        // Validate duo registration
+        if ((action === 'duo' || action === 'waiting_duo') && !reacter.has_duo) {
+          alert('No tienes una dupla configurada en tu perfil.\n\nVe a Mi Perfil y agrega tu dupla primero.')
+          navigate('/reacter/perfil')
+          return
+        }
+
         const statusMap = {
           solo: 'pending',
           duo: 'pending',
           waiting_solo: 'waiting',
           waiting_duo: 'waiting',
         }
+
+        // Include duo info in observations when registering with duo
+        const isDuo = action === 'duo' || action === 'waiting_duo'
+        const observations = isDuo && reacter.duo_name
+          ? `Dupla: ${reacter.duo_name}${reacter.duo_rut ? ' · ' + reacter.duo_rut : ''}`
+          : ''
+
+        // Display name includes duo when registering together
+        const displayName = isDuo && reacter.duo_name
+          ? `${reacter.name} + ${reacter.duo_name}`
+          : reacter.name
+
         await registrations.create({
           match_id: match.id,
-          reacter_id: reacterSession.reacter.id,
-          reacter_name: reacterSession.reacter.name,
+          reacter_id: reacter.id,
+          reacter_name: displayName,
           registration_type: action,
           status: statusMap[action],
-          observations: '',
+          observations,
         })
       }
       loadData()
