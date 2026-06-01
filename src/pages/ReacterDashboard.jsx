@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, User, Calendar, Clock, AlertTriangle, Mic2, X, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { matches, registrations, reacters } from '../lib/db.js'
+import { matches, registrations, reacters, authorizedUsers } from '../lib/db.js'
 
 const MAX_WAITING = 6
 const MAX_MAIN = 2
@@ -295,22 +295,44 @@ export default function ReacterDashboard() {
         })
 
         // If registering with duo, also register the duo partner as a separate entry
-        if (isDuo && reacter.duo_name) {
-          // Look for duo partner's profile first
-          const duoProfile = reacter.duo_rut ? await reacters.getByRut(reacter.duo_rut) : null
+        if (isDuo && reacter.duo_name && reacter.duo_rut) {
           try {
+            // Look for duo partner's profile
+            let duoProfile = await reacters.getByRut(reacter.duo_rut)
+
+            // If duo partner has no profile yet, create one automatically
+            if (!duoProfile) {
+              // Make sure they exist in authorized_users first
+              const duoAuthUser = await authorizedUsers.getByRut(reacter.duo_rut)
+              if (!duoAuthUser) {
+                await authorizedUsers.add(reacter.duo_rut, reacter.duo_name)
+              }
+              // Create reacter profile for duo partner
+              duoProfile = await reacters.upsert({
+                rut: reacter.duo_rut,
+                name: reacter.duo_name,
+                email: reacter.duo_email || '',
+                phone: reacter.duo_phone || '',
+                has_duo: true,
+                duo_name: reacter.name,
+                duo_rut: reacter.rut,
+                duo_email: reacter.email || '',
+                duo_phone: reacter.phone || '',
+              })
+            }
+
+            // Now create the registration for the duo partner
             await registrations.create({
               match_id: match.id,
-              reacter_id: duoProfile?.id || null, // null if partner hasn't created profile yet
-              reacter_name: duoProfile?.name || reacter.duo_name,
+              reacter_id: duoProfile.id,
+              reacter_name: duoProfile.name,
               registration_type: action,
               status: statusMap[action],
               observations: `Dupla con: ${reacter.name}`,
             })
           } catch (e) {
-            // Duo partner might already be registered — that's OK
             if (!e.message?.includes('Ya estás inscrito')) {
-              console.warn('No se pudo inscribir a la dupla:', e.message)
+              console.warn('Dupla:', e.message)
             }
           }
         }
