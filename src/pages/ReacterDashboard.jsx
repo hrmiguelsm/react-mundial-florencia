@@ -119,7 +119,7 @@ function MatchCard({ match, myReg, allRegs, onAction }) {
               <span className="text-xs text-white/50">Tu inscripción:</span>
               <StatusBadge status={myReg.status} />
             </div>
-            {!['confirmed'].includes(myReg.status) && (
+            {!isClosed && !['confirmed'].includes(myReg.status) && (
               <button
                 onClick={() => onAction('cancel', match, myReg)}
                 className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
