@@ -32,7 +32,7 @@ function StatusBadge({ status }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>
 }
 
-function MatchCard({ match, myReg, allRegs, onAction }) {
+function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoRut }) {
   const [expanded, setExpanded] = useState(false)
 
   // Separate main and waiting registrations (only active ones)
@@ -112,21 +112,11 @@ function MatchCard({ match, myReg, allRegs, onAction }) {
           </div>
         )}
 
-        {/* My current status */}
+        {/* My current status — solo muestra estado, sin botón cancelar */}
         {myReg && (
-          <div className="flex items-center justify-between mb-3 p-2 bg-navy-900 rounded-xl">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-white/50">Tu inscripción:</span>
-              <StatusBadge status={myReg.status} />
-            </div>
-            {!isClosed && !['confirmed'].includes(myReg.status) && (
-              <button
-                onClick={() => onAction('cancel', match, myReg)}
-                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-              >
-                <X className="w-3 h-3" /> Cancelar
-              </button>
-            )}
+          <div className="flex items-center gap-2 mb-3 p-2 bg-navy-900 rounded-xl">
+            <span className="text-xs text-white/50">Tu inscripción:</span>
+            <StatusBadge status={myReg.status} />
           </div>
         )}
 
@@ -184,23 +174,49 @@ function MatchCard({ match, myReg, allRegs, onAction }) {
               {mainRegs.length > 0 && (
                 <div>
                   <p className="text-xs text-gold-400 font-medium mb-1">🎙️ Postulantes principales</p>
-                  {mainRegs.map((r, i) => (
-                    <div key={r.id} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-white/60">{i + 1}. {r.reacter_name || r.reacter_id}</span>
-                      <StatusBadge status={r.status} />
-                    </div>
-                  ))}
+                  {mainRegs.map((r, i) => {
+                    const isMe = r.reacter_id === myReacterId
+                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && isMe
+                    return (
+                      <div key={r.id} className="flex items-center justify-between text-xs py-1.5">
+                        <span className={`${isMe ? 'text-gold-400 font-medium' : 'text-white/60'}`}>
+                          {i + 1}. {r.reacter_name || r.reacter_id} {isMe && '(tú)'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={r.status} />
+                          {canRemove && (
+                            <button onClick={() => onAction('cancel', match, r)} className="text-red-400/60 hover:text-red-400 transition-colors ml-1" title="Eliminar inscripción">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {waitingRegs.length > 0 && (
                 <div className="pt-2">
                   <p className="text-xs text-blue-400 font-medium mb-1">⏳ Lista de espera ({waitingRegs.length}/{MAX_WAITING})</p>
-                  {waitingRegs.map((r, i) => (
-                    <div key={r.id} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-white/60">{i + 1}. {r.reacter_name || r.reacter_id}</span>
-                      <StatusBadge status={r.status} />
-                    </div>
-                  ))}
+                  {waitingRegs.map((r, i) => {
+                    const isMe = r.reacter_id === myReacterId
+                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && isMe
+                    return (
+                      <div key={r.id} className="flex items-center justify-between text-xs py-1.5">
+                        <span className={`${isMe ? 'text-gold-400 font-medium' : 'text-white/60'}`}>
+                          {i + 1}. {r.reacter_name || r.reacter_id} {isMe && '(tú)'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={r.status} />
+                          {canRemove && (
+                            <button onClick={() => onAction('cancel', match, r)} className="text-red-400/60 hover:text-red-400 transition-colors ml-1" title="Eliminar inscripción">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -282,16 +298,7 @@ export default function ReacterDashboard() {
 
     try {
       if (action === 'cancel') {
-        const isDuoReg = ['duo', 'waiting_duo'].includes(myReg.registration_type)
-
-        // If duo registration, show choice modal instead of confirm
-        if (isDuoReg && reacter.duo_name) {
-          setCancelModal({ match, myReg })
-          return
-        }
-
-        // Solo registration — simple confirm
-        if (!window.confirm('¿Cancelar tu inscripción?')) return
+        if (!window.confirm('¿Eliminar esta inscripción?')) return
         await registrations.delete(myReg.id)
       } else {
         const reacter = reacterSession.reacter
@@ -473,6 +480,8 @@ export default function ReacterDashboard() {
                 myReg={myRegs[m.id]}
                 allRegs={allRegs[m.id] || []}
                 onAction={handleAction}
+                myReacterId={reacterSession?.reacter?.id}
+                myDuoRut={reacterSession?.reacter?.duo_rut}
               />
             ))}
           </div>
