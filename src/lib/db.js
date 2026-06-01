@@ -139,18 +139,16 @@ export const registrations = DEMO_MODE ? {
     return data || []
   },
   countMain: async (matchId) => {
-    const { count } = await supabase.from('registrations').select('*', { count: 'exact', head: true })
+    const { data } = await supabase.from('registrations').select('id, status, registration_type')
       .eq('match_id', matchId)
       .in('registration_type', ['solo', 'duo'])
-      .not('status', 'in', '(cancelled,rejected)')
-    return count || 0
+    return (data || []).filter(r => !['cancelled', 'rejected'].includes(r.status)).length
   },
   countWaiting: async (matchId) => {
-    const { count } = await supabase.from('registrations').select('*', { count: 'exact', head: true })
+    const { data } = await supabase.from('registrations').select('id, status, registration_type')
       .eq('match_id', matchId)
       .in('registration_type', ['waiting_solo', 'waiting_duo'])
-      .not('status', 'in', '(cancelled,rejected)')
-    return count || 0
+    return (data || []).filter(r => !['cancelled', 'rejected'].includes(r.status)).length
   },
   create: async (data) => {
     const { data: existing } = await supabase.from('registrations').select('id').eq('match_id', data.match_id).eq('reacter_id', data.reacter_id).maybeSingle()
