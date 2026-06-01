@@ -32,7 +32,7 @@ function StatusBadge({ status }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>
 }
 
-function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoRut }) {
+function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoName }) {
   const [expanded, setExpanded] = useState(false)
 
   // Separate main and waiting registrations (only active ones)
@@ -176,11 +176,13 @@ function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoRut }) {
                   <p className="text-xs text-gold-400 font-medium mb-1">🎙️ Postulantes principales</p>
                   {mainRegs.map((r, i) => {
                     const isMe = r.reacter_id === myReacterId
-                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && isMe
+                    const isMyDuo = !isMe && myDuoName && r.reacter_name === myDuoName
+                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && (isMe || isMyDuo)
                     return (
                       <div key={r.id} className="flex items-center justify-between text-xs py-1.5">
                         <span className={`${isMe ? 'text-gold-400 font-medium' : 'text-white/60'}`}>
-                          {i + 1}. {r.reacter_name || r.reacter_id} {isMe && '(tú)'}
+                          {i + 1}. {r.reacter_name || r.reacter_id}
+                          {isMe && <span className="text-gold-500/60 ml-1">(tú)</span>}
                         </span>
                         <div className="flex items-center gap-2">
                           <StatusBadge status={r.status} />
@@ -200,7 +202,8 @@ function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoRut }) {
                   <p className="text-xs text-blue-400 font-medium mb-1">⏳ Lista de espera ({waitingRegs.length}/{MAX_WAITING})</p>
                   {waitingRegs.map((r, i) => {
                     const isMe = r.reacter_id === myReacterId
-                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && isMe
+                    const isMyDuo = !isMe && myDuoName && r.reacter_name === myDuoName
+                    const canRemove = !isClosed && !['confirmed'].includes(r.status) && (isMe || isMyDuo)
                     return (
                       <div key={r.id} className="flex items-center justify-between text-xs py-1.5">
                         <span className={`${isMe ? 'text-gold-400 font-medium' : 'text-white/60'}`}>
@@ -481,7 +484,7 @@ export default function ReacterDashboard() {
                 allRegs={allRegs[m.id] || []}
                 onAction={handleAction}
                 myReacterId={reacterSession?.reacter?.id}
-                myDuoRut={reacterSession?.reacter?.duo_rut}
+                myDuoName={reacterSession?.reacter?.duo_name}
               />
             ))}
           </div>
