@@ -103,18 +103,6 @@ function MatchModal({ match, onClose, onSave }) {
               <input value={form.custom_transmission_text} onChange={e => s('custom_transmission_text', e.target.value)} className="mt-2 w-full bg-navy-900 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500 text-sm" placeholder="Ej: Desde móvil en terreno, Programa especial..." />
             )}
           </div>
-          {/* Status */}
-          <div>
-            <label className="block text-xs text-white/50 mb-2">Estado</label>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.entries(STATUSES).map(([val, info]) => (
-                <label key={val} className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border transition-colors ${form.status === val ? 'border-gold-500/50 bg-gold-500/5' : 'border-white/5 hover:border-white/10'}`}>
-                  <input type="radio" name="status" value={val} checked={form.status === val} onChange={() => s('status', val)} className="accent-gold-500" />
-                  <span className={`text-sm ${info.color}`}>{info.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
           {/* Notes */}
           <div>
             <label className="block text-xs text-white/50 mb-1">Notas</label>
@@ -467,14 +455,18 @@ export default function MatchesAdmin() {
   useEffect(() => { load() }, [])
 
   const load = async () => {
-    const ms = await matchStore.getAll()
+    const [ms, allRegs] = await Promise.all([
+      matchStore.getAll(),
+      regStore.getAll(),
+    ])
     setList(ms)
-    // Compute registration counts per match
+    // Compute counts from single query — no 208 API calls
     const counts = {}
     for (const m of ms) {
+      const regs = allRegs.filter(r => r.match_id === m.id)
       counts[m.id] = {
-        main: await regStore.countMain(m.id),
-        waiting: await regStore.countWaiting(m.id),
+        main: regs.filter(r => ['solo','duo'].includes(r.registration_type) && !['cancelled','rejected'].includes(r.status)).length,
+        waiting: regs.filter(r => ['waiting_solo','waiting_duo'].includes(r.registration_type) && !['cancelled','rejected'].includes(r.status)).length,
       }
     }
     setRegCounts(counts)
@@ -687,13 +679,9 @@ export default function MatchesAdmin() {
                     {/* Inscribed count */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-xs">
-                        {cnt.main > 0 ? (
-                          <span className={`font-medium ${cnt.main >= 2 ? 'text-green-400' : 'text-white/60'}`}>
-                            {cnt.main} inscritos
-                          </span>
-                        ) : (
-                          <span className="text-white/20">—</span>
-                        )}
+                        <span className={`font-medium ${cnt.main >= 2 ? 'text-green-400' : cnt.main > 0 ? 'text-white/60' : 'text-white/20'}`}>
+                          {cnt.main} inscritos
+                        </span>
                         {cnt.waiting > 0 && (
                           <div className="text-yellow-400 mt-0.5">{cnt.waiting} espera</div>
                         )}
