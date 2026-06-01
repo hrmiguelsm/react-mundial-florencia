@@ -304,33 +304,33 @@ export default function ReacterDashboard() {
         if (!window.confirm('¿Eliminar esta inscripción?')) return
 
         const wasMain = ['solo', 'duo'].includes(myReg.registration_type)
+
+        // Use already-loaded allRegs to calculate promotion BEFORE deleting
+        const currentRegs = allRegs[match.id] || []
+        const currentMain = currentRegs.filter(r =>
+          ['solo', 'duo'].includes(r.registration_type) &&
+          !['cancelled', 'rejected'].includes(r.status) &&
+          r.id !== myReg.id
+        )
+        const currentWaiting = currentRegs
+          .filter(r =>
+            ['waiting_solo', 'waiting_duo'].includes(r.registration_type) &&
+            !['cancelled', 'rejected'].includes(r.status)
+          )
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
+        // Delete the registration
         await registrations.delete(myReg.id)
 
-        // If removed a main participant, promote waiting list if needed
-        if (wasMain) {
-          const remaining = await registrations.getByMatch(match.id)
-          const mainNow = remaining.filter(r =>
-            ['solo', 'duo'].includes(r.registration_type) &&
-            !['cancelled', 'rejected'].includes(r.status)
-          ).length
-
-          if (mainNow < MAX_MAIN) {
-            const waiting = remaining
-              .filter(r =>
-                ['waiting_solo', 'waiting_duo'].includes(r.registration_type) &&
-                !['cancelled', 'rejected'].includes(r.status)
-              )
-              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-
-            const spotsAvailable = MAX_MAIN - mainNow
-            for (let i = 0; i < Math.min(spotsAvailable, waiting.length); i++) {
-              const w = waiting[i]
-              const newType = w.registration_type === 'waiting_duo' ? 'duo' : 'solo'
-              await registrations.update(w.id, {
-                registration_type: newType,
-                status: 'pending',
-              })
-            }
+        // Promote from waiting list if a main spot opened
+        if (wasMain && currentMain.length < MAX_MAIN) {
+          const spotsAvailable = MAX_MAIN - currentMain.length
+          for (let i = 0; i < Math.min(spotsAvailable, currentWaiting.length); i++) {
+            const w = currentWaiting[i]
+            await registrations.update(w.id, {
+              registration_type: w.registration_type === 'waiting_duo' ? 'duo' : 'solo',
+              status: 'pending',
+            })
           }
         }
       } else {
