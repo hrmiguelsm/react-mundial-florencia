@@ -247,8 +247,24 @@ export default function ReacterDashboard() {
 
     try {
       if (action === 'cancel') {
-        if (!window.confirm('¿Cancelar tu inscripción?')) return
+        const isDuoReg = ['duo', 'waiting_duo'].includes(myReg.registration_type)
+        const msg = isDuoReg
+          ? '¿Cancelar tu inscripción y la de tu dupla en este partido?'
+          : '¿Cancelar tu inscripción?'
+        if (!window.confirm(msg)) return
+
+        // Delete own registration
         await registrations.delete(myReg.id)
+
+        // If was a duo registration, also cancel the duo partner's registration
+        if (isDuoReg && reacter.duo_rut) {
+          const duoProfile = await reacters.getByRut(reacter.duo_rut)
+          if (duoProfile) {
+            const allMatchRegs = await registrations.getByMatch(match.id)
+            const duoReg = allMatchRegs.find(r => r.reacter_id === duoProfile.id)
+            if (duoReg) await registrations.delete(duoReg.id)
+          }
+        }
       } else {
         const reacter = reacterSession.reacter
 
