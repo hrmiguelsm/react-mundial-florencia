@@ -35,8 +35,8 @@ function StatusBadge({ status }) {
 function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoName }) {
   const [expanded, setExpanded] = useState(false)
 
-  // When match is closed/confirmed, group by STATUS instead of registration_type
-  // to avoid confusing promotions in the display
+  const isClosed = match.status === 'closed' || match.status === 'confirmed' || match.status === 'finished'
+
   const activeRegs = allRegs.filter(r => !['cancelled', 'rejected'].includes(r.status))
 
   const mainRegs = isClosed
@@ -49,7 +49,6 @@ function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoName }) 
 
   const mainCount = mainRegs.length
   const waitingCount = waitingRegs.length
-  const isClosed = match.status === 'closed' || match.status === 'confirmed' || match.status === 'finished'
   const waitingFull = waitingCount >= MAX_WAITING
 
   // What buttons to show
