@@ -35,15 +35,17 @@ function StatusBadge({ status }) {
 function MatchCard({ match, myReg, allRegs, onAction, myReacterId, myDuoName }) {
   const [expanded, setExpanded] = useState(false)
 
-  // Separate main and waiting registrations (only active ones)
-  const mainRegs = allRegs.filter(r =>
-    ['solo', 'duo'].includes(r.registration_type) &&
-    !['cancelled', 'rejected'].includes(r.status)
-  )
-  const waitingRegs = allRegs.filter(r =>
-    ['waiting_solo', 'waiting_duo'].includes(r.registration_type) &&
-    !['cancelled', 'rejected'].includes(r.status)
-  )
+  // When match is closed/confirmed, group by STATUS instead of registration_type
+  // to avoid confusing promotions in the display
+  const activeRegs = allRegs.filter(r => !['cancelled', 'rejected'].includes(r.status))
+
+  const mainRegs = isClosed
+    ? activeRegs.filter(r => ['confirmed', 'pending'].includes(r.status))
+    : activeRegs.filter(r => ['solo', 'duo'].includes(r.registration_type))
+
+  const waitingRegs = isClosed
+    ? activeRegs.filter(r => r.status === 'waiting')
+    : activeRegs.filter(r => ['waiting_solo', 'waiting_duo'].includes(r.registration_type))
 
   const mainCount = mainRegs.length
   const waitingCount = waitingRegs.length
@@ -322,8 +324,8 @@ export default function ReacterDashboard() {
         // Delete the registration
         await registrations.delete(myReg.id)
 
-        // Promote from waiting list if a main spot opened
-        if (wasMain && currentMain.length < MAX_MAIN) {
+        // Promote from waiting list only if match is still active (not closed/confirmed)
+        if (wasMain && currentMain.length < MAX_MAIN && match.status === 'active') {
           const spotsAvailable = MAX_MAIN - currentMain.length
           for (let i = 0; i < Math.min(spotsAvailable, currentWaiting.length); i++) {
             const w = currentWaiting[i]
@@ -412,6 +414,7 @@ export default function ReacterDashboard() {
   }
 
   const [filterTime, setFilterTime] = useState('all')
+  const [filterTrans, setFilterTrans] = useState('all')
 
   const phases = ['all', ...new Set(visibleMatches.map(m => m.phase))]
 
@@ -426,7 +429,8 @@ export default function ReacterDashboard() {
   const filtered = visibleMatches.filter(m => {
     const matchPhase = filter === 'all' || m.phase === filter
     const matchTime = filterTime === 'all' || (m.match_time && m.match_time.slice(0, 5) === filterTime)
-    return matchPhase && matchTime
+    const matchTrans = filterTrans === 'all' || m.transmission_type === filterTrans
+    return matchPhase && matchTime && matchTrans
   })
 
   // Cancel solo — only remove own registration
@@ -515,20 +519,39 @@ export default function ReacterDashboard() {
           )}
 
           {/* Time filter */}
-          {hours.length > 2 && (
+          {hours.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
-              <span className="text-white/30 text-xs shrink-0">🕐 Horario:</span>
+              <span className="text-white/30 text-xs shrink-0">🕐</span>
               {hours.map(h => (
                 <button
                   key={h}
                   onClick={() => setFilterTime(h)}
                   className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterTime === h ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
                 >
-                  {h === 'all' ? 'Todos' : h}
+                  {h === 'all' ? 'Todos los horarios' : h}
                 </button>
               ))}
             </div>
           )}
+
+          {/* Transmission filter */}
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
+            <span className="text-white/30 text-xs shrink-0">📍</span>
+            {[
+              { val: 'all',    label: 'Todos los lugares' },
+              { val: 'studio', label: '🎥 Estudio Florencia' },
+              { val: 'home',   label: '🏠 Desde la casa' },
+              { val: 'custom', label: '✍️ Personalizado' },
+            ].map(opt => (
+              <button
+                key={opt.val}
+                onClick={() => setFilterTrans(opt.val)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterTrans === opt.val ? 'bg-gold-500/20 text-gold-300 border border-gold-500/30' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Matches grid */}
