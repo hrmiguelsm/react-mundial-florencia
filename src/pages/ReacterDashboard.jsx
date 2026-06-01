@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, User, Calendar, Clock, AlertTriangle, Mic2, X, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { matches, registrations } from '../lib/db.js'
+import { matches, registrations, reacters } from '../lib/db.js'
 
 const MAX_WAITING = 6
 const MAX_MAIN = 2
@@ -266,25 +266,39 @@ export default function ReacterDashboard() {
           waiting_duo: 'waiting',
         }
 
-        // Include duo info in observations when registering with duo
         const isDuo = action === 'duo' || action === 'waiting_duo'
-        const observations = isDuo && reacter.duo_name
-          ? `Dupla: ${reacter.duo_name}${reacter.duo_rut ? ' · ' + reacter.duo_rut : ''}`
-          : ''
 
-        // Display name includes duo when registering together
-        const displayName = isDuo && reacter.duo_name
-          ? `${reacter.name} + ${reacter.duo_name}`
-          : reacter.name
-
+        // Register current user
         await registrations.create({
           match_id: match.id,
           reacter_id: reacter.id,
-          reacter_name: displayName,
+          reacter_name: reacter.name,
           registration_type: action,
           status: statusMap[action],
-          observations,
+          observations: isDuo && reacter.duo_name ? `Dupla con: ${reacter.duo_name}` : '',
         })
+
+        // If registering with duo, also register the duo partner as a separate entry
+        if (isDuo && reacter.duo_rut) {
+          const duoProfile = await reacters.getByRut(reacter.duo_rut)
+          if (duoProfile) {
+            try {
+              await registrations.create({
+                match_id: match.id,
+                reacter_id: duoProfile.id,
+                reacter_name: duoProfile.name,
+                registration_type: action,
+                status: statusMap[action],
+                observations: `Dupla con: ${reacter.name}`,
+              })
+            } catch (e) {
+              // Duo partner might already be registered — that's OK
+              if (!e.message?.includes('Ya estás inscrito')) {
+                console.warn('No se pudo inscribir a la dupla:', e.message)
+              }
+            }
+          }
+        }
       }
       loadData()
     } catch (err) {
