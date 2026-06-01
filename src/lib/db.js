@@ -151,8 +151,11 @@ export const registrations = DEMO_MODE ? {
     return (data || []).filter(r => !['cancelled', 'rejected'].includes(r.status)).length
   },
   create: async (data) => {
-    const { data: existing } = await supabase.from('registrations').select('id').eq('match_id', data.match_id).eq('reacter_id', data.reacter_id).maybeSingle()
-    if (existing) throw new Error('Ya estás inscrito en este partido')
+    // Only check duplicates if reacter_id is present
+    if (data.reacter_id) {
+      const { data: existing } = await supabase.from('registrations').select('id').eq('match_id', data.match_id).eq('reacter_id', data.reacter_id).maybeSingle()
+      if (existing) throw new Error('Ya estás inscrito en este partido')
+    }
     const { data: inserted, error } = await supabase.from('registrations').insert(data).select().single()
     if (error) throw new Error(error.message)
     return inserted

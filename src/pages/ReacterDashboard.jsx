@@ -295,23 +295,22 @@ export default function ReacterDashboard() {
         })
 
         // If registering with duo, also register the duo partner as a separate entry
-        if (isDuo && reacter.duo_rut) {
-          const duoProfile = await reacters.getByRut(reacter.duo_rut)
-          if (duoProfile) {
-            try {
-              await registrations.create({
-                match_id: match.id,
-                reacter_id: duoProfile.id,
-                reacter_name: duoProfile.name,
-                registration_type: action,
-                status: statusMap[action],
-                observations: `Dupla con: ${reacter.name}`,
-              })
-            } catch (e) {
-              // Duo partner might already be registered — that's OK
-              if (!e.message?.includes('Ya estás inscrito')) {
-                console.warn('No se pudo inscribir a la dupla:', e.message)
-              }
+        if (isDuo && reacter.duo_name) {
+          // Look for duo partner's profile first
+          const duoProfile = reacter.duo_rut ? await reacters.getByRut(reacter.duo_rut) : null
+          try {
+            await registrations.create({
+              match_id: match.id,
+              reacter_id: duoProfile?.id || null, // null if partner hasn't created profile yet
+              reacter_name: duoProfile?.name || reacter.duo_name,
+              registration_type: action,
+              status: statusMap[action],
+              observations: `Dupla con: ${reacter.name}`,
+            })
+          } catch (e) {
+            // Duo partner might already be registered — that's OK
+            if (!e.message?.includes('Ya estás inscrito')) {
+              console.warn('No se pudo inscribir a la dupla:', e.message)
             }
           }
         }
