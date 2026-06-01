@@ -217,8 +217,11 @@ function CloseMatchPanel({ match, onClose, onSaved, onClosed }) {
     setLoading(false)
   }
 
-  const mainRegs = regs.filter(r => ['solo', 'duo'].includes(r.registration_type))
-  const waitingRegs = regs.filter(r => ['waiting_solo', 'waiting_duo'].includes(r.registration_type))
+  // Groups based on CURRENT status in local state, not original registration_type
+  // So moving someone to 'waiting' instantly moves them to the waiting section
+  const mainRegs = regs.filter(r => ['confirmed', 'pending'].includes(statuses[r.id] ?? r.status))
+  const waitingRegs = regs.filter(r => (statuses[r.id] ?? r.status) === 'waiting')
+  const rejectedRegs = regs.filter(r => (statuses[r.id] ?? r.status) === 'rejected')
 
   const setStatus = (id, status) => setStatuses(prev => ({ ...prev, [id]: status }))
 
@@ -360,7 +363,7 @@ function CloseMatchPanel({ match, onClose, onSaved, onClosed }) {
               {/* Waiting list */}
               {waitingRegs.length > 0 && (
                 <div>
-                  <p className="text-xs text-blue-400 font-semibold uppercase tracking-wider mb-2">⏳ Lista de espera</p>
+                  <p className="text-xs text-blue-400 font-semibold uppercase tracking-wider mb-2">⏳ Lista de espera ({waitingRegs.length})</p>
                   <div className="space-y-2">
                     {waitingRegs.map((r, i) => (
                       <div key={r.id} className="flex items-center justify-between gap-3 bg-navy-800/60 border border-blue-500/10 rounded-xl p-3">
@@ -372,19 +375,33 @@ function CloseMatchPanel({ match, onClose, onSaved, onClosed }) {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => setStatus(r.id, 'confirmed')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'confirmed' ? 'bg-green-500/30 text-green-300 ring-1 ring-green-500/50' : 'bg-white/5 text-white/40 hover:bg-green-500/20 hover:text-green-400'}`}
-                          >
+                          <button onClick={() => setStatus(r.id, 'confirmed')} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-white/40 hover:bg-green-500/20 hover:text-green-400 transition-colors">
                             ✓ Confirmar
                           </button>
-                          <button
-                            onClick={() => setStatus(r.id, 'rejected')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${statuses[r.id] === 'rejected' ? 'bg-red-500/30 text-red-300 ring-1 ring-red-500/50' : 'bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400'}`}
-                          >
+                          <button onClick={() => setStatus(r.id, 'pending')} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-white/40 hover:bg-gold-500/20 hover:text-gold-400 transition-colors">
+                            ↑ Principal
+                          </button>
+                          <button onClick={() => setStatus(r.id, 'rejected')} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400 transition-colors">
                             ✗ No
                           </button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rejected */}
+              {rejectedRegs.length > 0 && (
+                <div>
+                  <p className="text-xs text-red-400/60 font-semibold uppercase tracking-wider mb-2">✗ No seleccionados ({rejectedRegs.length})</p>
+                  <div className="space-y-1">
+                    {rejectedRegs.map(r => (
+                      <div key={r.id} className="flex items-center justify-between gap-3 bg-navy-800/30 border border-red-500/5 rounded-xl px-3 py-2 opacity-60">
+                        <p className="text-white/40 text-sm truncate">{r.reacter_name || r.reacter_id}</p>
+                        <button onClick={() => setStatus(r.id, 'pending')} className="px-2 py-1 rounded-lg text-xs text-white/30 hover:text-white/60 transition-colors">
+                          ↩ Restaurar
+                        </button>
                       </div>
                     ))}
                   </div>
